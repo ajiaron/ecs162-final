@@ -1,0 +1,140 @@
+{{! Partial for a single post }}
+<div class="post">
+    <div class="post-avatar">
+        <!-- the user's avatar -->
+        <a class="avatar-link" href="/profile/{{username}}">
+            <img src="
+                /avatar/{{username}}" 
+            alt="User Avatar" 
+            class="header-avatar">
+        </a>
+    </div>
+    <div class="post-content preserve-newlines">
+        <!-- the post -->
+        <h2 class="post-title">{{title}}</h2>
+        <p class="post-text">{{content}}</p>
+        <div class="post-meta">
+            <span class="post-subtext">{{username}}</span>
+        </div>
+        <div class="post-status-bar">
+            <!-- everything that is shown in the status bar -->
+            <!-- Heart = ♥ -->
+           {{#ifCond username user.username}}
+                <i class="fas fa-trash-alt delete-button" data-id="{{id}}" id="delete-button"> </i>
+            {{else}}
+                <i class="heart-icon like-button" data-id="{{id}}">♥</i>
+            {{/ifCond}}
+            <div class="post-details-container">
+                <span class="post-details">Likes: <span class="like-count">{{likes}}</span></span>
+                <span class="post-details">By {{username}} at {{timestamp}}</span>
+            </div>
+        </div>    
+        <div class="comment-popup" id="comment-section-{{id}}">
+            <ul class="comments-list" id="comments-list-{{id}}">
+            </ul>
+            {{#if user.username}}
+            <div class="comment-input-container">
+                <input type="text" id="comment-input-{{id}}" placeholder="Add a comment..." class="comment-input" />
+                <button id="submit-comment-{{id}}" data-id="{{id}}" class="submit-comment-button">Submit</button>
+            </div>
+            {{/if}}
+        </div>    
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.like-button').forEach(button => {
+            button.addEventListener('click', handleLikeClick);
+        });
+        document.querySelectorAll('.delete-button').forEach(button => {
+            button.addEventListener('click', handleDeleteClick);
+        });
+        document.querySelectorAll('.submit-comment-button').forEach(button => {
+            button.addEventListener('click', handleSubmitComment);
+        });
+        document.querySelectorAll('.post').forEach(post => {
+            const postId = post.querySelector('.comment-popup').getAttribute('id').split('-').pop();
+            fetchComments(postId);
+        });
+        document.addEventListener('postsSorted', function() {
+            document.querySelectorAll('.post').forEach(post => {
+                const postId = post.querySelector('.comment-popup').getAttribute('id').split('-').pop();
+                fetchComments(postId);
+            });
+            addCommentEvent()
+        });
+    });
+
+    // to handle comment submission after sorting dismounts
+    function addCommentEvent() {
+        document.querySelectorAll('.submit-comment-button').forEach(button => {
+            button.addEventListener('click', handleSubmitComment);
+        });
+    }
+
+    function fetchComments(postId) {
+        fetch(`/comments/${postId}`)
+            .then(response => response.json())
+            .then(data => {
+                const commentsList = document.getElementById(`comments-list-${postId}`);
+                const commentSection = document.getElementById(`comment-section-${postId}`);
+                commentsList.innerHTML = '';
+                if (data.comments.length === 0) {
+                    commentSection.style.paddingTop = '0';
+                } else {
+                    commentSection.style.paddingTop = '.8rem';
+                }
+                data.comments.forEach(comment => {
+                    const li = document.createElement('li');
+                    li.classList.add("comment-text")
+                    li.textContent = `${comment.username}: ${comment.comment}`;
+                    commentsList.appendChild(li);
+                });
+            });
+    }
+
+    function handleSubmitComment(event) {
+        const postId = event.target.getAttribute('data-id');
+        const commentInput = document.getElementById(`comment-input-${postId}`);
+        const commentText = commentInput.value;
+        if (commentText.trim() === '') return;
+        fetch(`/comments/${postId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ comment: commentText })
+        }).then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                commentInput.value = '';
+                fetchComments(postId);
+            }
+        });
+    }
+
+    function handleLikeClick(event) {
+        const postId = event.target.getAttribute('data-id');
+        fetch(`/like/${postId}`, {
+            method: 'POST'
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  const likeCountElement = event.target.closest('.post').querySelector('.like-count');
+                  likeCountElement.textContent = data.likes;
+              }
+        });    
+    }
+
+    function handleDeleteClick(event) {
+        const buttonElement = event.target.closest('.delete-button');
+        const postId = buttonElement.getAttribute('data-id');        
+        fetch(`/delete/${postId}`, {
+            method: 'POST'
+        }).then(response => {
+            if (response.ok) {
+                window.location.reload();  
+            }
+        });        
+    }    
+</script>

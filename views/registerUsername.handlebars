@@ -1,0 +1,33 @@
+{{! Use the main layout }}
+{{!< main }}
+
+<section class="login-register">
+  <section class = "register-area">
+        <h2 class="signin-header">Register</h2>
+        <!-- errors will appear here -->
+        {{#if regError}}
+            <p style="color: red;">{{regError}}</p>
+            {{else}}
+            <p class="signin-subtext">Create a new Microblog account.</p>
+        {{/if}}
+        <form action="/registerUsername" method="POST" class="register-username-form">
+            <!-- the registration form goes here -->
+            <div class='login-fields-container'> 
+                <div class='login-field-wrapper'>
+                    <p class='login-field-text'>
+                        Username
+                    </p>
+                    <div class='login-input-wrapper'>
+                        <input class='username-input'
+                        value=""
+                        name="username"
+                        type="text"
+                        placeholder='Enter your username...'/>
+                    </div>
+                </div>
+            </div>
+            <button class="signin-button-alt" type="submit">Register</button>
+        </form>
+    </section>
+</section>
+

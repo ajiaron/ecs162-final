@@ -1,0 +1,227 @@
+{{! Use the main layout }}
+{{!< main }}
+
+<div class="profile-container">
+    <div class="profile-avatar">
+         <img src="{{#if profile.avatar_url}}
+                {{profile.avatar_url}}
+            {{else}}
+                /avatar/{{profile.username}}
+            {{/if}}" 
+            alt="User Avatar" 
+            class="avatar-large">
+        <!-- Correct path for the default avatar image -->
+    </div>
+    
+    <section class="profile-info">
+        {{#if isOwner}}
+            <p class="profile-header">Your Profile</p>
+        {{else}}
+            <p class="profile-header">{{profile.username}}'s Profile</p>
+        {{/if}}
+        <div class="profile-info-item" id="username-info">
+            <p class="profile-info-text">Username:</p>
+            <p class="profile-info-subtext">{{profile.username}}</p>
+        </div>
+        <div class="profile-info-item" id="date-info">
+            <p class="profile-info-text">Member Since:</p>
+            <p class="profile-info-subtext">{{profile.memberSince}}</p>
+        </div>
+        <!-- user profile info -->
+    </section>
+    {{#if isOwner}}
+    <button class="profile-donate-button" id="create-campaign-button">
+        {{#if hasCampaign}}
+            <p class="donate-text" id="donate-text">Your Campaign</p>  
+        {{else}}
+            <p class="donate-text" id="donate-text">Create Campaign</p>  
+        {{/if}}
+    </button>
+    {{else}}
+        {{#if paymentEnabled }}
+        <a class="profile-donate-button" id="donate-campaign-button" href="/donate/{{profile.username}}">
+            <p class="donate-text" id="donate-text">Donate</p>
+        </a>
+        {{/if}}
+    {{/if}}
+</div>
+
+<section class="user-posts">
+    <!-- you can call posts tweets, or truths, or whatever, these are neologisms. Choose your own new in server.js -->
+       {{#if isOwner}}
+           <h2 class="home-header">Your {{{postNeoType}}}s</h2>
+        {{else}}
+            <h2 class="home-header">{{profile.username}}'s {{{postNeoType}}}s</h2>
+        {{/if}}
+    <!-- you'll need to make this conditaionl and #each expression work -->
+    {{#if posts.length}}
+      <div class="sort-container-profile">
+        <span class="post-subtext sort-subtext-profile">Sort</span>
+        <div class="sort-button-container-profile">  
+            <div class="sort-button-wrapper profile-button-wrapper">          
+                <span class="post-subtext">Date</span>
+                <button class="sort-posts-button sort-button-active" id="sort-recency">
+                    <img src="/images/calender.svg" alt="calender-icon" class="sort-icon" id="sort-recency-icon">
+                    </img>
+                </button>
+                    <span class="post-subtext">Likes</span>
+                <button class="sort-posts-button" id="sort-likes">
+                    <img src="/images/heart.svg" alt="like-icon" class="sort-icon" id="sort-likes-icon">
+                    </img>
+                </button>
+            </div>   
+            <div class="sort-button-wrapper profile-button-wrapper">  
+                <span class="post-subtext">Asc</span>
+                <button class="sort-posts-button" id="sort-ascending">
+                    <img src="/images/uparrow.svg" alt="arrow-icon" class="sort-icon" id="sort-ascending-icon">
+                    </img>
+                </button>
+                <span class="post-subtext">Desc</span>
+                <button class="sort-posts-button sort-button-active" id="sort-descending">
+                    <img src="/images/downarrow.svg" alt="arrow-icon" class="sort-icon" id="sort-descending-icon">
+                    </img>
+                </button>
+            </div>
+        </div>
+    </div>
+    <ul class="post-list-wrapper">
+        {{#each posts}}
+            <!-- you have to pass the user in to posts and this is the syntax -->
+            {{> post this user=../user}}            
+        {{/each}}
+    </ul>
+    {{else}}
+        <!-- fix this up with some helper functions and other handlebars expressions, or add you own character -->
+        <p class="profile-info-subtext empty-list-subtext">You have not posted yet, poster.</p>
+    {{/if}}
+</section>
+<script>
+    // handle post sorting
+    const user = {{{json profile}}};
+    const postList = {{{json posts}}};
+    const paymentEnabled = {{{json paymentEnabled}}};
+    if (postList.length > 0) {
+        const sortRecencyButton = document.getElementById('sort-recency');
+        const sortLikesButton = document.getElementById('sort-likes');
+        const sortAscendingButton = document.getElementById('sort-ascending');
+        const sortDescendingButton = document.getElementById('sort-descending');
+        sortRecencyButton.addEventListener('click', () => toggleSort("timestamp"));
+        sortLikesButton.addEventListener('click', () => toggleSort("likes"));
+        sortAscendingButton.addEventListener('click', () => toggleSort("ascending"));
+        sortDescendingButton.addEventListener('click', () => toggleSort("descending"));
+        let order = 'descending';
+        let sortBy = 'timestamp';
+
+        async function sortPosts(sortBy, order) {
+            try {
+                const response = await fetch(`/posts/render?sortBy=${sortBy}&order=${order}&profile=${user.username}`);
+                const html = await response.text();
+                updatePosts(html);
+            } catch (error) {
+                console.error('Error fetching sorted posts:', error);
+            }
+        }
+
+        function updatePosts(html) {
+            const postsContainer = document.querySelector('.post-list-wrapper');
+            postsContainer.innerHTML = html;  
+            document.querySelectorAll('.like-button').forEach(button => {
+                button.addEventListener('click', handleLikeClick);
+            });
+            document.querySelectorAll('.delete-button').forEach(button => {
+                button.addEventListener('click', handleDeleteClick);
+            });
+            const event = new Event('postsSorted');
+            document.dispatchEvent(event);
+        }
+
+        function toggleSort(type) {
+            if (type === 'timestamp' || type === 'likes') {
+                if (type==='likes') {
+                    sortRecencyButton.classList.remove('sort-button-active')
+                    sortLikesButton.classList.add('sort-button-active')
+                } else {
+                    sortLikesButton.classList.remove('sort-button-active')
+                    sortRecencyButton.classList.add('sort-button-active')
+                }
+                sortBy = type
+            } else {
+                if (type==='ascending') {
+                    sortDescendingButton.classList.remove('sort-button-active')
+                    sortAscendingButton.classList.add('sort-button-active')
+                } else {
+                    sortAscendingButton.classList.remove('sort-button-active')
+                    sortDescendingButton.classList.add('sort-button-active')
+                }
+                order = type
+            }
+            sortPosts(sortBy, order)
+        }
+    }
+
+    const createCampaignButton = document.getElementById('create-campaign-button');
+    const campaignButtonText = document.getElementById('donate-text');
+    // returns null when the profile is not the user's
+    createCampaignButton.addEventListener('click', async () => createCampaign())
+    const createCampaign = async () => {
+        try {
+            campaignButtonText.innerText = 'Loading...'
+            const hasLink = await fetch(`/api/checkaccountlink?campaignname=${encodeURIComponent(user.username)}`);
+            if (!hasLink.ok) {
+                throw new Error('Network response was not ok ' + hasLink.statusText);
+            }
+            const data = await hasLink.json();
+            // route to complete onboarding, or view stripe account
+            if (data.stripe_account_link) {
+                const loginLink = await fetch(`/dashboard-link?accountid=${encodeURIComponent(data.stripe_account_link)}&campaignname=${encodeURIComponent(user.username)}`, {
+                    method: 'GET'
+                });
+                if (!loginLink.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                const outbound = await loginLink.json();
+                if (outbound.success && outbound.url) {
+                    // redirecting to the stripe dashboard link
+                    window.location.href = outbound.url;
+                } else {
+                    console.error('Failed to get the dashboard link:', data.error);
+                }
+                campaignButtonText.innerText = 'Your Campaign'
+            } else {
+                // create stripe account
+                const res = await fetch(`/api/createaccount`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (!res.ok) {
+                    throw new Error('Network response was not ok ' + res.statusText);
+                }
+                const resData = await res.json();
+                if (resData) { // retrieve onboarding link
+                    const accountLinkRes = await fetch(`/api/accountlink`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            accountid: resData.id,
+                            campaignname: user.username,
+                        })
+                    });
+                    if (!accountLinkRes.ok) {
+                        throw new Error('Network response was not ok ' + accountLinkRes.statusText);
+                    } 
+                    const accountLinkData = await accountLinkRes.json();
+                    if (accountLinkData) {
+                        window.location.href = accountLinkData.url;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error:', e);
+        } 
+    };
+
+</script>

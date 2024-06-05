@@ -1,0 +1,17 @@
+{{! Use the main layout }}
+{{!< main }}
+
+<section class="login-register">
+    <section class = "login-area">
+        <h2 class="signin-header">Login with Google</h2>
+        <!-- errors will appear here -->
+        {{#if loginError}}
+            <p style="color: red;">{{loginError}}</p>
+            {{else}}
+            <p class="signin-subtext">Sign in with your Google account.</p>
+        {{/if}}
+        <div class="signin-form">
+             <a href="/auth/google" class="signin-button">Sign in with Google</a>
+        </div>
+    </section> 
+</section>

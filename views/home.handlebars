@@ -1,0 +1,256 @@
+{{! Use the main layout }}
+{{!< main }}
+
+{{! New Post Submission Form }}
+<section class="content-container">
+    {{#if loggedIn}}
+        <!-- show the create post form when logged in -->
+        <section class="post-form">
+            <h1 class="home-header">Create a new post</h1>
+            <form action="/posts" method="POST" class="create-post-form">
+                <div class='create-post-container'> 
+                    <div class='create-post-field-wrapper'>
+                        <p class='create-post-field-text'>
+                            Post Title
+                        </p>
+                        <div class='create-post-wrapper'>
+                            <input class='create-post-input'
+                            id="post-title"
+                            value=""
+                            name="title"
+                            type="text"
+                            placeholder='Write a title...'/>
+                        </div>
+                    </div>
+                    <div class='create-post-field-wrapper'>
+                        <p class='create-post-field-text'>
+                            What's on your mind {{user.username}}?
+                        </p>
+                        <div class='create-post-wrapper'>
+                            <textarea class='create-post-input-area'
+                            type="text"
+                            id="post-content"
+                            name="content"
+                            placeholder='Enter some text...'></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="emoji-button" onclick="toggleEmojiPanel()">😀</button>
+                        <button type="submit" class="post-button" disabled="true" id="post-button">Create Post</button>
+                    </div>
+                </div>
+            </form>
+            <div id="emoji-container" class="emoji-panel" style="display:none;">
+                <input class="emoji-search"
+                id="emoji-search"
+                type="text"
+                name="emoji"
+                oninput="searchEmojis()"
+                placeholder="Search for an emoji..."/>
+                <div class="emoji-result-container" id="emoji-grid">
+                    <p class="profile-info-subtext" id="loading-text">loading...</p>
+                </div>
+            </div>
+        </section>
+    {{/if}}
+
+    <section class="posts-list">
+        <!-- recent posts -->
+        <h1 class="home-header">Recent Posts</h1>
+
+        {{#if posts.length}}
+        <div class="post-list-container">
+        
+            <div class="sort-container">
+                <span class="post-subtext sort-subtext-profile">Sort:</span>
+                <div class="sort-button-container">  
+                    <div class="sort-button-wrapper">
+                        <span class="post-subtext">Date</span>
+                        <button class="sort-posts-button sort-button-active" id="sort-recency">
+                            <img src="/images/calender.svg" alt="calender-icon" class="sort-icon" id="sort-recency-icon">
+                            </img>
+                        </button>
+           
+                        <span class="post-subtext">Likes</span>
+                        <button class="sort-posts-button" id="sort-likes">
+                            <img src="/images/heart.svg" alt="like-icon" class="sort-icon" id="sort-likes-icon">
+                            </img>
+                        </button>
+                    </div>
+                    <div class="sort-button-wrapper">
+                        <span class="post-subtext">Asc</span>
+                        <button class="sort-posts-button" id="sort-ascending">
+                            <img src="/images/uparrow.svg" alt="arrow-icon" class="sort-icon" id="sort-ascending-icon">
+                            </img>
+                        </button>
+                        <span class="post-subtext">Desc</span>
+                        <button class="sort-posts-button sort-button-active" id="sort-descending">
+                            <img src="/images/downarrow.svg" alt="arrow-icon" class="sort-icon" id="sort-descending-icon">
+                            </img>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <ul class="post-list-wrapper">
+                {{#each posts}}
+                    {{> post this user=../user}}            
+                {{/each}}
+            </ul>
+        </div>
+        {{else}}
+            <p class="profile-info-subtext empty-list-subtext">No posts just yet. Try adding one!</p>
+        {{/if}}
+    </section>
+</section>
+
+
+{{! JavaScript for Emoji Integration }}
+<script>
+    /*
+    You want to show a subset of the emojis. About 200. However,
+    you also want the user to be able to search all emojis,
+    so, put them in this array when the array is empty so 
+    that you have them.
+    */
+     document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('create-post-form');
+        const titleInput = document.getElementById('post-title');
+        const contentInput = document.getElementById('post-content');
+        const postButton = document.getElementById('post-button');
+
+        function checkFormValidity() {
+            if (titleInput.value.trim() === '' || contentInput.value.trim() === '') {
+                postButton.disabled = true;
+                postButton.style.backgroundColor = 'gray';
+            } else {
+                postButton.disabled = false;
+                postButton.style.backgroundColor = '';
+            }
+        }
+        titleInput.addEventListener('input', checkFormValidity);
+        contentInput.addEventListener('input', checkFormValidity);
+
+        document.querySelectorAll('.like-button').forEach(button => {
+            button.addEventListener('click', handleLikeClick);
+        });
+        document.querySelectorAll('.delete-button').forEach(button => {
+            button.addEventListener('click', handleDeleteClick);
+        });
+        document.addEventListener('emojiInserted', function() {
+            checkFormValidity()
+        });
+    });
+
+    const sortRecencyButton = document.getElementById('sort-recency');
+    const sortLikesButton = document.getElementById('sort-likes');
+    const sortAscendingButton = document.getElementById('sort-ascending');
+    const sortDescendingButton = document.getElementById('sort-descending');
+    sortRecencyButton.addEventListener('click', () => toggleSort("timestamp"));
+    sortLikesButton.addEventListener('click', () => toggleSort("likes"));
+    sortAscendingButton.addEventListener('click', () => toggleSort("ascending"));
+    sortDescendingButton.addEventListener('click', () => toggleSort("descending"));
+    let order = 'descending';
+    let sortBy = 'timestamp';
+
+    async function sortPosts(sortBy, order) {
+        try {
+            const response = await fetch(`/posts/render?sortBy=${sortBy}&order=${order}`);
+            const html = await response.text();
+            updatePosts(html);
+        } catch (error) {
+            console.error('Error fetching sorted posts:', error);
+        }
+    }
+
+    function updatePosts(html) {
+        const postsContainer = document.querySelector('.post-list-wrapper');
+        postsContainer.innerHTML = html;  // Replace the posts container with new HTML
+        document.querySelectorAll('.like-button').forEach(button => {
+            button.addEventListener('click', handleLikeClick);
+        });
+        document.querySelectorAll('.delete-button').forEach(button => {
+            button.addEventListener('click', handleDeleteClick);
+        });
+        const event = new Event('postsSorted');
+        document.dispatchEvent(event);
+    }
+
+    function toggleSort(type) {
+        if (type === 'timestamp' || type === 'likes') {
+            if (type==='likes') {
+                sortRecencyButton.classList.remove('sort-button-active')
+                sortLikesButton.classList.add('sort-button-active')
+            } else {
+                sortLikesButton.classList.remove('sort-button-active')
+                sortRecencyButton.classList.add('sort-button-active')
+            }
+            sortBy = type
+        } else {
+             if (type==='ascending') {
+                sortDescendingButton.classList.remove('sort-button-active')
+                sortAscendingButton.classList.add('sort-button-active')
+            } else {
+                sortAscendingButton.classList.remove('sort-button-active')
+                sortDescendingButton.classList.add('sort-button-active')
+            }
+            order = type
+        }
+        sortPosts(sortBy, order)
+    }
+    
+    let allEmojis = [];  // Global list to hold all emojis
+
+    async function fetchEmojis() {
+        const loadingText = document.getElementById('loading-text');
+        try {
+            const response = await fetch('/emojis');
+            allEmojis = await response.json();
+            displayEmojis(allEmojis);
+        } catch (error) {
+            console.error('Error fetching emojis:', error);
+        }
+    }
+
+    function toggleEmojiPanel() {
+        const container = document.getElementById('emoji-container');
+        container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        if (container.style.display === 'block' && allEmojis.length === 0) {
+            fetchEmojis()
+        }
+    }
+
+    function displayEmojis(emojis,limit=200) {
+        const container = document.getElementById('emoji-grid');
+        const loadingText = document.getElementById('loading-text');
+        container.innerHTML = '';  
+        //loadingText.style.display = 'none';
+        if (Array.isArray(emojis) && emojis.length > 0) {
+            emojis.slice(0, limit).forEach(emoji => {
+                const emojiElement = document.createElement('span');
+                emojiElement.textContent = emoji.character;
+                emojiElement.title = emoji.slug;  // showing the emoji name on hover
+                emojiElement.style.cursor = 'pointer';
+                emojiElement.onclick = () => insertEmoji(emoji.character);
+                container.appendChild(emojiElement);
+            });
+        } else {
+            container.textContent = 'No emojis found. Try a different search!';
+        }
+    }
+
+    function searchEmojis() {
+        const searchTerm = document.getElementById('emoji-search').value.toLowerCase();
+        const filteredEmojis = allEmojis.filter(emoji => emoji.slug.includes(searchTerm));
+        displayEmojis(filteredEmojis);
+    }
+
+    function insertEmoji(emoji) {
+        const textarea = document.querySelector('.create-post-input-area');
+        textarea.value += emoji;
+        textarea.focus();  // Keep focus on the textarea
+        const event = new Event('emojiInserted');
+            document.dispatchEvent(event);
+        }
+    
+</script>
+
